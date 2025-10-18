@@ -1,5 +1,7 @@
 package com.mifica.repository;
 
-public class DesafioRepository {
+import com.mifica.entity.DesafioGamificado;
+import org.springframework.data.jpa.repository.JpaRepository;
 
+public interface DesafioRepository extends JpaRepository<DesafioGamificado, Long> {
 }

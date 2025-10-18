@@ -90,6 +90,17 @@ public class Usuario {
         this.nivel = novoNivel;
     }
 
+    
+    private String role;
+
+    public String getRole() {
+        return role;
+    }
+    
+    public void setRole(String role) {
+        this.role = role;
+    }
+
     public List<SolicitacaoCredito> getSolicitacoes() {
         return solicitacoes;
     }

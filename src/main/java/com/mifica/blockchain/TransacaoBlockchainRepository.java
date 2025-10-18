@@ -1,5 +1,6 @@
 package com.mifica.blockchain;
 
-public class TransacaoBlockchainRepository {
+import org.springframework.data.jpa.repository.JpaRepository;
 
+public interface TransacaoBlockchainRepository extends JpaRepository<TransacaoBlockchain, Long> {
 }

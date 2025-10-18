@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
-import com.mifica.dto.LoginDTO;
+import com.mifica.dto.EstatisticasDTO;
 import com.mifica.dto.UsuarioDTO;
 import com.mifica.entity.Usuario;
 import com.mifica.service.UsuarioService;
@@ -15,7 +15,7 @@ import com.mifica.util.JwtUtil;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/usuarios")
+@RequestMapping("/api/usuarios") // 🔧 Prefixo padronizado
 public class UsuarioController {
 
     private static final String USUARIO_NAO_ENCONTRADO = "Usuário não encontrado.";
@@ -27,20 +27,17 @@ public class UsuarioController {
     @Autowired
     private JwtUtil jwtUtil;
 
-    // 🔹 Teste de conexão
     @GetMapping("/teste-swagger")
     public ResponseEntity<String> testarSwagger() {
         return ResponseEntity.ok("Swagger reconheceu o controller!");
     }
 
-    // 🔹 Criar novo usuário
     @PostMapping
     public ResponseEntity<UsuarioDTO> criar(@Valid @RequestBody UsuarioDTO dto) {
         UsuarioDTO criado = usuarioService.criar(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(criado);
     }
-    
-    // 🔐 Login e geração de token
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody UsuarioDTO dto) {
         Usuario usuario = usuarioService.buscarPorEmail(dto.getEmail());
@@ -52,13 +49,11 @@ public class UsuarioController {
         return ResponseEntity.ok(token);
     }
 
-    // 🔹 Buscar todos os usuários
     @GetMapping
     public ResponseEntity<List<UsuarioDTO>> listarTodos() {
         return ResponseEntity.ok(usuarioService.listarTodos());
     }
 
-    // 🔹 Buscar usuário por ID
     @GetMapping("/{id}")
     public ResponseEntity<?> buscarPorId(@PathVariable Long id) {
         Optional<UsuarioDTO> usuario = usuarioService.buscarPorId(id);
@@ -66,7 +61,6 @@ public class UsuarioController {
                       .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(USUARIO_NAO_ENCONTRADO));
     }
 
-    // 🔹 Perfil do usuário autenticado
     @GetMapping("/perfil")
     public ResponseEntity<?> perfil(@RequestHeader("Authorization") String token) {
         try {
@@ -91,16 +85,12 @@ public class UsuarioController {
         }
     }
 
-    // 🔹 Atualizar dados do usuário (PUT = substituição completa)
     @PutMapping("/{id}")
     public ResponseEntity<UsuarioDTO> atualizarUsuario(@PathVariable Long id, @RequestBody UsuarioDTO dto) {
         UsuarioDTO atualizado = usuarioService.atualizarUsuario(id, dto);
         return ResponseEntity.ok(atualizado);
     }
 
-
-
-    // 🔹 Atualizar reputação (PATCH = alteração parcial)
     @PatchMapping("/perfil/reputacao")
     public ResponseEntity<String> atualizarReputacao(@RequestHeader("Authorization") String token,
                                                      @RequestBody int novaReputacao) {
@@ -113,7 +103,6 @@ public class UsuarioController {
         }
     }
 
-    // 🔹 Verificar missão diária
     @GetMapping("/perfil/missao-diaria")
     public ResponseEntity<String> verificarMissaoDiaria(@RequestHeader("Authorization") String token) {
         try {
@@ -132,7 +121,6 @@ public class UsuarioController {
         }
     }
 
-    // 🔹 Aplicar recompensas
     @PostMapping("/perfil/recompensas")
     public ResponseEntity<String> aplicarRecompensas(@RequestHeader("Authorization") String token) {
         try {
@@ -144,7 +132,6 @@ public class UsuarioController {
         }
     }
 
-    // 🔹 Ver conquistas desbloqueadas
     @GetMapping("/perfil/conquistas")
     public ResponseEntity<List<String>> listarConquistas(@RequestHeader("Authorization") String token) {
         try {
@@ -156,10 +143,6 @@ public class UsuarioController {
         }
     }
 
-
-
-
-    // 🔹 Deletar conta do usuário autenticado
     @DeleteMapping("/perfil")
     public ResponseEntity<String> deletarConta(@RequestHeader("Authorization") String token) {
         try {
@@ -171,18 +154,23 @@ public class UsuarioController {
         }
     }
 
-    // 🔹 HEAD: verificar se usuário existe
     @RequestMapping(value = "/{id}", method = RequestMethod.HEAD)
     public ResponseEntity<Void> verificarExistencia(@PathVariable Long id) {
         boolean existe = usuarioService.existePorId(id);
         return existe ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
     }
 
-    // 🔹 OPTIONS: informar métodos disponíveis
     @RequestMapping(value = "", method = RequestMethod.OPTIONS)
     public ResponseEntity<Void> options() {
         HttpHeaders headers = new HttpHeaders();
         headers.add("Allow", "GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS");
         return new ResponseEntity<>(headers, HttpStatus.OK);
+    }
+
+    @GetMapping("/estatisticas")
+    public EstatisticasDTO getEstatisticas() {
+        int totalUsuarios = usuarioService.contarUsuarios();
+        double mediaReputacao = usuarioService.mediaReputacao();
+        return new EstatisticasDTO(totalUsuarios, mediaReputacao);
     }
 }

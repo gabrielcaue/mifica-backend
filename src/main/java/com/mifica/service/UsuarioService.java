@@ -325,6 +325,17 @@ public class UsuarioService {
         return converterParaDTO(atualizado);
     }
 
+    public int contarUsuarios() {
+        return Math.toIntExact(usuarioRepository.count());
+    }
+
+    public double mediaReputacao() {
+        List<Usuario> usuarios = usuarioRepository.findAll();
+        return usuarios.stream()
+                       .mapToDouble(Usuario::getReputacao)
+                       .average()
+                       .orElse(0.0);
+    }
 
 
     
