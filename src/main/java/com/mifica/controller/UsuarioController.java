@@ -1,14 +1,22 @@
 package com.mifica.controller;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import com.mifica.dto.EstatisticasDTO;
+import com.mifica.dto.LoginDTO;
 import com.mifica.dto.UsuarioDTO;
 import com.mifica.entity.Usuario;
+import com.mifica.repository.UsuarioRepository;
 import com.mifica.service.UsuarioService;
 import com.mifica.util.JwtUtil;
 
@@ -39,17 +47,28 @@ public class UsuarioController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody UsuarioDTO dto) {
+    public ResponseEntity<?> login(@RequestBody LoginDTO dto) {
         Usuario usuario = usuarioService.buscarPorEmail(dto.getEmail());
 
         if (usuario == null || !usuarioService.senhaCorreta(dto.getSenha(), usuario.getSenha())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Credenciais inválidas.");
         }
+
         String token = jwtUtil.gerarToken(usuario.getEmail());
-        return ResponseEntity.ok(token);
+
+        Map<String, Object> resposta = new HashMap<>();
+        resposta.put("token", token);
+        resposta.put("id", usuario.getId()); // ← ESSENCIAL
+        resposta.put("nome", usuario.getNome());
+        resposta.put("reputacao", usuario.getReputacao());
+        resposta.put("conquistas", usuario.getConquistas());
+
+        return ResponseEntity.ok(resposta);
     }
 
-    @GetMapping
+
+    @GetMapping("/admin/usuarios")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UsuarioDTO>> listarTodos() {
         return ResponseEntity.ok(usuarioService.listarTodos());
     }
@@ -71,13 +90,17 @@ public class UsuarioController {
             }
 
             UsuarioDTO dto = new UsuarioDTO(
-                usuario.getId(),
-                usuario.getNome(),
-                usuario.getEmail(),
-                null,
-                usuario.getReputacao(),
-                usuario.getNivel()
-            );
+            	    usuario.getId(),
+            	    usuario.getNome(),
+            	    usuario.getEmail(),
+            	    null, // senha omitida
+            	    usuario.getReputacao(),
+            	    usuario.getNivel(),
+            	    usuario.getDataNascimento(),
+            	    usuario.getTelefone(),
+            	    usuario.getRole()
+            	);
+
 
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
@@ -172,5 +195,69 @@ public class UsuarioController {
         int totalUsuarios = usuarioService.contarUsuarios();
         double mediaReputacao = usuarioService.mediaReputacao();
         return new EstatisticasDTO(totalUsuarios, mediaReputacao);
+    }
+    
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;
+
+    @PostMapping("/cadastro-admin")
+    public ResponseEntity<?> cadastrarAdmin(@RequestBody UsuarioDTO dto) {
+        Usuario novoAdmin = new Usuario();
+        novoAdmin.setNome(dto.getNome());
+        novoAdmin.setEmail(dto.getEmail());
+        novoAdmin.setSenha(passwordEncoder.encode(dto.getSenha()));
+        novoAdmin.setRole("ADMIN"); // ← perfil administrativo
+        novoAdmin.setReputacao(100);
+        novoAdmin.setConquistas(new ArrayList<>());
+
+        usuarioRepository.save(novoAdmin);
+        return ResponseEntity.ok("Administrador cadastrado com sucesso");
+    }
+
+    
+    @PostMapping("/cadastro")
+    public ResponseEntity<?> cadastrarUsuario(@RequestBody UsuarioDTO dto) {
+        Usuario novoUsuario = new Usuario();
+        novoUsuario.setNome(dto.getNome());
+        novoUsuario.setEmail(dto.getEmail());
+        novoUsuario.setSenha(passwordEncoder.encode(dto.getSenha()));
+        novoUsuario.setRole("USER"); // ← perfil padrão
+        novoUsuario.setReputacao(0);
+        novoUsuario.setConquistas(new ArrayList<>());
+
+        usuarioRepository.save(novoUsuario);
+        return ResponseEntity.ok("Usuário cadastrado com sucesso");
+    }
+
+
+
+    @PutMapping("/admin/promover/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> promover(@PathVariable Long id) {
+        usuarioService.alterarPapel(id, "ROLE_ADMIN");
+        return ResponseEntity.ok("Usuário promovido para ADMIN.");
+    }
+    
+    @PutMapping("/admin/rebaixar/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> rebaixar(@PathVariable Long id) {
+        usuarioService.alterarPapel(id, "ROLE_USER");
+        return ResponseEntity.ok("Usuário rebaixado para USER.");
+    }
+
+    @RestController
+    @RequestMapping("/api/config")
+    public class ConfigController {
+
+        @Value("${app.security.dev-mode}")
+        private boolean devMode;
+
+        @GetMapping("/dev-mode")
+        public boolean isDevMode() {
+            return devMode;
+        }
     }
 }

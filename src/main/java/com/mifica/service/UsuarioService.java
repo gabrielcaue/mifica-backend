@@ -3,14 +3,13 @@ package com.mifica.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.mifica.dto.UsuarioCadastroDTO;
 import com.mifica.dto.UsuarioDTO;
 import com.mifica.entity.SolicitacaoCredito;
 import com.mifica.entity.Usuario;
@@ -22,12 +21,13 @@ public class UsuarioService {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
-    // 🔹 Verifica se o e-mail já está cadastrado
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;
+
     public boolean emailJaExiste(String email) {
         return usuarioRepository.findByEmail(email).isPresent();
     }
 
-    // 🔹 Criação de usuário com senha criptografada
     public UsuarioDTO criar(UsuarioDTO dto) {
         String senhaCriptografada = criptografarSenha(dto.getSenha());
         return criarUsuario(dto, senhaCriptografada);
@@ -38,34 +38,26 @@ public class UsuarioService {
         usuario.setNome(dto.getNome());
         usuario.setEmail(dto.getEmail());
         usuario.setSenha(senhaCriptografada);
-        usuario.setReputacao(dto.getReputacao());
+        usuario.setReputacao(dto.getReputacao() != null ? dto.getReputacao() : 1);
         usuario.setNivel(dto.getNivel());
-        if (dto.getReputacao() == null) {
-            dto.setReputacao(1);
-        }
 
         Usuario salvo = usuarioRepository.save(usuario);
         return converterParaDTO(salvo);
-
     }
 
-    // 🔹 Buscar por ID e retornar DTO
     public Optional<UsuarioDTO> buscarPorId(Long id) {
         return usuarioRepository.findById(id).map(this::converterParaDTO);
     }
 
-    // 🔹 Buscar por e-mail (entidade)
     public Usuario buscarPorEmail(String email) {
         return usuarioRepository.findByEmail(email).orElse(null);
     }
 
-    // 🔹 Buscar por e-mail (DTO)
     public UsuarioDTO buscarPorEmailDTO(String email) {
         Usuario usuario = buscarPorEmail(email);
         return usuario != null ? converterParaDTO(usuario) : null;
     }
 
-    // 🔹 Atualizar dados básicos do perfil
     public void atualizarPerfil(String email, Usuario dadosAtualizados) {
         Usuario usuario = buscarPorEmail(email);
         if (usuario == null) return;
@@ -74,30 +66,27 @@ public class UsuarioService {
             usuario.setNome(dadosAtualizados.getNome());
         }
         if (dadosAtualizados.getSenha() != null) {
-            usuario.setSenha(dadosAtualizados.getSenha());
+            usuario.setSenha(criptografarSenha(dadosAtualizados.getSenha()));
         }
 
         usuarioRepository.save(usuario);
     }
 
-    // 🔹 Atualizar reputação simples
     public boolean atualizarReputacao(String email, int novaReputacao) {
         Usuario usuario = buscarPorEmail(email);
         if (usuario == null) return false;
 
         usuario.setReputacao(novaReputacao);
         usuarioRepository.save(usuario);
-		return false;
+        return true;
     }
 
-    // 🔹 Atualizar reputação com lógica de nível
     public void atualizarReputacao(Usuario usuario, int novaReputacao) {
         usuario.setReputacao(novaReputacao);
         usuario.atualizarNivel();
         usuarioRepository.save(usuario);
     }
 
-    // 🔹 Criar solicitação de crédito
     public Usuario criarSolicitacao(BigDecimal valor, String descricao, LocalDate prazo, String email) {
         Usuario usuario = buscarPorEmail(email);
 
@@ -112,154 +101,41 @@ public class UsuarioService {
         return usuarioRepository.save(usuario);
     }
 
-    // 🔹 Listar solicitações do usuário
     public List<SolicitacaoCredito> listarSolicitacoes(String email) {
         Usuario usuario = buscarPorEmail(email);
         return usuario != null ? usuario.getSolicitacoes() : List.of();
     }
 
-    // 🔹 Verificar missão diária
     public boolean verificarMissaoDiaria(Usuario usuario) {
         return usuario.cumpriuMissaoHoje();
     }
 
-    // 🔹 Listar conquistas desbloqueadas
     public List<String> listarConquistas(String email) {
-        Optional<Usuario> optionalUsuario = usuarioRepository.findByEmail(email);
-
-        if (optionalUsuario.isEmpty()) {
-            throw new RuntimeException("Usuário não encontrado.");
-        }
-
-        Usuario usuario = optionalUsuario.get();
+        Usuario usuario = buscarPorEmail(email);
+        if (usuario == null) throw new RuntimeException("Usuário não encontrado.");
         return usuario.getConquistas();
-    }
-
-    // 🔹 Aplicar recompensas gamificadas
-    public void aplicarRecompensasAgora(Usuario usuario) {
-        usuario.aplicarRecompensas();
-        usuarioRepository.save(usuario);
-    }
-
-    // 🔹 Utilitários
-    public void salvar(Usuario usuario) {
-        usuarioRepository.save(usuario);
-    }
-
-    public void excluir(Usuario usuario) {
-        usuarioRepository.delete(usuario);
-    }
-
-    public boolean senhaCorreta(String senhaDigitada, String senhaArmazenada) {
-        return new BCryptPasswordEncoder().matches(senhaDigitada, senhaArmazenada);
-    }
-
-    private String criptografarSenha(String senha) {
-        return new BCryptPasswordEncoder().encode(senha);
-    }
-
-    private UsuarioDTO converterParaDTO(Usuario usuario) {
-        return new UsuarioDTO(
-            usuario.getId(),
-            usuario.getNome(),
-            usuario.getEmail(),
-            null, // senha omitida
-            usuario.getReputacao(),
-            usuario.getNivel()
-        );
-    }
-
-    public List<UsuarioDTO> listarTodos() {
-        List<Usuario> usuarios = usuarioRepository.findAll();
-
-        return usuarios.stream()
-            .map(usuario -> new UsuarioDTO(
-                usuario.getId(),
-                usuario.getNome(),
-                usuario.getEmail(),
-                null, // senha omitida por segurança
-                usuario.getReputacao(),
-                usuario.getNivel()
-            ))
-            .toList();
-    }
-    public Optional<UsuarioDTO> atualizar(Long id, UsuarioDTO dto) {
-        Optional<Usuario> optionalUsuario = usuarioRepository.findById(id);
-
-        if (optionalUsuario.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Usuario usuario = optionalUsuario.get();
-
-        // Atualiza os campos permitidos
-        usuario.setNome(dto.getNome());
-        usuario.setEmail(dto.getEmail());
-
-        // Atualiza a senha apenas se vier preenchida
-        if (dto.getSenha() != null && !dto.getSenha().isBlank()) {
-            usuario.setSenha(dto.getSenha());
-        }
-
-        // Atualiza reputação e nível se vierem preenchidos
-        if (dto.getReputacao() != null) {
-            usuario.setReputacao(dto.getReputacao());
-        }
-		return null;
-
-    }
-    public void aplicarRecompensasCertas(Usuario usuario) {
-        // Recompensa por missão diária
-        boolean cumpriuMissao = verificarMissaoDiaria(usuario);
-        if (cumpriuMissao) {
-            usuario.setReputacao(usuario.getReputacao() + 1);
-        }
-
-        // Recompensa por reputação acumulada
-        if (usuario.getReputacao() >= 10 && !usuario.getConquistas().contains("Reputação 10+")) {
-            usuario.getConquistas().add("Reputação 10+");
-        }
-
-        // Recompensa por primeira solicitação
-        if (usuario.getSolicitacoes().size() == 1 && !usuario.getConquistas().contains("Primeira solicitação")) {
-            usuario.getConquistas().add("Primeira solicitação");
-        }
-
-        // Atualiza nível com base na reputação
-        if (usuario.getReputacao() >= 20) {
-            usuario.setNivel("Expert");
-        } else if (usuario.getReputacao() >= 10) {
-            usuario.setNivel("Intermediário");
-        } else {
-            usuario.setNivel("Iniciante");
-        }
-
-        // Salva alterações
-        usuarioRepository.save(usuario);
     }
 
     public void aplicarRecompensas(String email) {
         Usuario usuario = buscarPorEmail(email);
         if (usuario == null) return;
 
-        List<String> conquistas = usuario.getConquistas();
-
-        if (!conquistas.contains("Primeira solicitação")) {
-            conquistas.add("Primeira solicitação");
+        if (usuario.getConquistas() == null) {
+            usuario.setConquistas(new ArrayList<>());
         }
 
-        if (usuario.getReputacao() >= 5 && !conquistas.contains("Reputação 5+")) {
-            conquistas.add("Reputação 5+");
+        if (!usuario.getConquistas().contains("Primeira solicitação") && usuario.getSolicitacoes().size() >= 1) {
+            usuario.getConquistas().add("Primeira solicitação");
+        }
+
+        if (usuario.getReputacao() >= 5 && !usuario.getConquistas().contains("Reputação 5+")) {
+            usuario.getConquistas().add("Reputação 5+");
         }
 
         usuarioRepository.save(usuario);
     }
 
-
-    public void aplicarRecompensas(Usuario usuario) {
-        // Aqui você já tem o usuário, não precisa buscar de novo
-        // Pode aplicar recompensas diretamente
-
+    public void aplicarRecompensasCertas(Usuario usuario) {
         boolean cumpriuMissao = verificarMissaoDiaria(usuario);
         if (cumpriuMissao) {
             usuario.setReputacao(usuario.getReputacao() + 1);
@@ -288,23 +164,65 @@ public class UsuarioService {
         usuarioRepository.save(usuario);
     }
 
-    public void deletarPorEmail(String email) {
-        Optional<Usuario> optionalUsuario = usuarioRepository.findByEmail(email);
+    public void salvar(Usuario usuario) {
+        usuarioRepository.save(usuario);
+    }
 
-        if (optionalUsuario.isEmpty()) {
-            throw new RuntimeException("Usuário não encontrado para exclusão.");
-        }
-
-        Usuario usuario = optionalUsuario.get();
+    public void excluir(Usuario usuario) {
         usuarioRepository.delete(usuario);
     }
-    public boolean existePorId(Long id) {
-        return usuarioRepository.existsById(id);
+
+    public void deletarPorEmail(String email) {
+        Usuario usuario = buscarPorEmail(email);
+        if (usuario == null) throw new RuntimeException("Usuário não encontrado para exclusão.");
+        usuarioRepository.delete(usuario);
     }
-   
-    public Usuario buscarUsuarioPorId(Long id) {
-        return usuarioRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+
+    public boolean senhaCorreta(String senhaDigitada, String senhaArmazenada) {
+        return passwordEncoder.matches(senhaDigitada, senhaArmazenada);
+    }
+
+    private String criptografarSenha(String senha) {
+        return passwordEncoder.encode(senha);
+    }
+
+    private UsuarioDTO converterParaDTO(Usuario usuario) {
+        return new UsuarioDTO(
+            usuario.getId(),
+            usuario.getNome(),
+            usuario.getEmail(),
+            null,
+            usuario.getReputacao(),
+            usuario.getNivel(),
+            usuario.getDataNascimento(),
+            usuario.getTelefone(),
+            usuario.getRole()
+        );
+    }
+
+    public List<UsuarioDTO> listarTodos() {
+        List<Usuario> usuarios = usuarioRepository.findAll();
+        return usuarios.stream().map(this::converterParaDTO).toList();
+    }
+
+    public Optional<UsuarioDTO> atualizar(Long id, UsuarioDTO dto) {
+        Optional<Usuario> optionalUsuario = usuarioRepository.findById(id);
+        if (optionalUsuario.isEmpty()) return Optional.empty();
+
+        Usuario usuario = optionalUsuario.get();
+        usuario.setNome(dto.getNome());
+        usuario.setEmail(dto.getEmail());
+
+        if (dto.getSenha() != null && !dto.getSenha().isBlank()) {
+            usuario.setSenha(criptografarSenha(dto.getSenha()));
+        }
+
+        if (dto.getReputacao() != null) {
+            usuario.setReputacao(dto.getReputacao());
+        }
+
+        usuarioRepository.save(usuario);
+        return Optional.of(converterParaDTO(usuario));
     }
 
     public UsuarioDTO atualizarUsuario(Long id, UsuarioDTO dto) {
@@ -325,18 +243,57 @@ public class UsuarioService {
         return converterParaDTO(atualizado);
     }
 
+    public boolean existePorId(Long id) {
+        return usuarioRepository.existsById(id);
+    }
+
+    public Usuario buscarUsuarioPorId(Long id) {
+        return usuarioRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+    }
+
     public int contarUsuarios() {
         return Math.toIntExact(usuarioRepository.count());
     }
 
     public double mediaReputacao() {
         List<Usuario> usuarios = usuarioRepository.findAll();
-        return usuarios.stream()
-                       .mapToDouble(Usuario::getReputacao)
-                       .average()
-                       .orElse(0.0);
+        if (usuarios.isEmpty()) return 0.0;
+
+        double soma = usuarios.stream()
+                              .mapToDouble(Usuario::getReputacao)
+                              .sum();
+
+        return soma / usuarios.size();
     }
 
+    public void cadastrarNovoUsuario(UsuarioCadastroDTO dto) {
+        Usuario usuario = new Usuario();
+        usuario.setNome(dto.getNome());
+        usuario.setEmail(dto.getEmail());
+        usuario.setSenha(passwordEncoder.encode(dto.getSenha()));
+        usuario.setDataNascimento(dto.getDataNascimento());
+        usuario.setTelefone(dto.getTelefone());
+
+        // 🔐 Define o papel conforme o DTO (com fallback para ROLE_USER)
+        usuario.setRole(formatarPapel(dto.getRole()));
+
+        usuarioRepository.save(usuario);
+    }
+
+    public void alterarPapel(Long id, String novoPapel) {
+        Usuario usuario = usuarioRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+        usuario.setRole(formatarPapel(novoPapel));
+        usuarioRepository.save(usuario);
+    }
+    
+    private String formatarPapel(String papel) {
+        if (papel == null || papel.isBlank()) {
+            return "ROLE_USER";
+        }
+        return papel.startsWith("ROLE_") ? papel : "ROLE_" + papel.toUpperCase();
+    }
 
     
 }

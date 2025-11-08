@@ -100,6 +100,25 @@ public class Usuario {
     public void setRole(String role) {
         this.role = role;
     }
+    private LocalDate dataNascimento;
+
+    private String telefone;
+
+    public LocalDate getDataNascimento() {
+        return dataNascimento;
+    }
+
+    public void setDataNascimento(LocalDate dataNascimento) {
+        this.dataNascimento = dataNascimento;
+    }
+
+    public String getTelefone() {
+        return telefone;
+    }
+
+    public void setTelefone(String telefone) {
+        this.telefone = telefone;
+    }
 
     public List<SolicitacaoCredito> getSolicitacoes() {
         return solicitacoes;
