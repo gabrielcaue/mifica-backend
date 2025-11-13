@@ -24,11 +24,22 @@ public class Usuario {
 
     private String nivel;
 
+    private String role;
+
+    private LocalDate dataNascimento;
+
+    private String telefone;
+
     @OneToMany(mappedBy = "usuarioSolicitante", cascade = CascadeType.ALL)
     private List<SolicitacaoCredito> solicitacoes = new ArrayList<>();
 
     @OneToMany(mappedBy = "avaliado", cascade = CascadeType.ALL)
     private List<Avaliacao> avaliacoesRecebidas = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "usuario_conquistas", joinColumns = @JoinColumn(name = "usuario_id"))
+    @Column(name = "conquista")
+    private List<String> conquistas = new ArrayList<>();
 
     public Usuario() {}
 
@@ -90,19 +101,13 @@ public class Usuario {
         this.nivel = novoNivel;
     }
 
-    
-    private String role;
-
     public String getRole() {
         return role;
     }
-    
+
     public void setRole(String role) {
         this.role = role;
     }
-    private LocalDate dataNascimento;
-
-    private String telefone;
 
     public LocalDate getDataNascimento() {
         return dataNascimento;
@@ -133,6 +138,14 @@ public class Usuario {
         return avaliacoesRecebidas;
     }
 
+    public List<String> getConquistas() {
+        return conquistas;
+    }
+
+    public void setConquistas(List<String> conquistas) {
+        this.conquistas = conquistas;
+    }
+
     // 🔥 Sistema de Níveis
     public void atualizarNivel() {
         if (this.reputacao >= 80) {
@@ -143,7 +156,7 @@ public class Usuario {
             this.nivel = "INICIANTE";
         }
     }
-    
+
     public boolean cumpriuMissaoHoje() {
         return solicitacoes.stream()
             .anyMatch(s -> s.getDataCriacao().toLocalDate().equals(LocalDate.now()));
@@ -166,6 +179,7 @@ public class Usuario {
 
         return conquistas;
     }
+
     public void aplicarRecompensas() {
         if (cumpriuMissaoHoje()) {
             this.reputacao += 5;
@@ -182,20 +196,6 @@ public class Usuario {
             System.out.println("🎁 Recompensa: Avaliado por 5 usuários!");
         }
 
-        atualizarNivel(); // recalcula o nível após recompensas
-    }
-
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "usuario_conquistas", joinColumns = @JoinColumn(name = "usuario_id"))
-    @Column(name = "conquista")
-    private List<String> conquistas = new ArrayList<>();
-
-    public List<String> getConquistas() {
-        return conquistas;
-    }
-
-    public void setConquistas(List<String> conquistas) {
-        this.conquistas = conquistas;
-    
+        atualizarNivel();
     }
 }

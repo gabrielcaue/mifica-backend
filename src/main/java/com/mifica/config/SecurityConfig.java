@@ -37,12 +37,12 @@ public class SecurityConfig {
                     "/api/usuarios/perfil/missao-diaria",
                     "/api/usuarios/perfil/conquistas",
                     "/api/usuarios/estatisticas",
+                    "/api/usuarios/cadastro-admin",
                     "/api/blockchain/**",
                     "/api/auth/**",
                     "/swagger-ui/**",
                     "/v3/api-docs/**"
                 ).permitAll()
-                .requestMatchers("/api/usuarios/cadastro-admin").hasRole("ADMIN")
                 .requestMatchers("/api/transacoes/**").hasAnyRole("USER", "ADMIN")
                 .anyRequest().authenticated()
             )

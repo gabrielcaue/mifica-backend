@@ -1,5 +1,7 @@
 package com.mifica.controller;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,7 +36,7 @@ public class UsuarioController {
 
     @Autowired
     private JwtUtil jwtUtil;
-
+    
     @GetMapping("/teste-swagger")
     public ResponseEntity<String> testarSwagger() {
         return ResponseEntity.ok("Swagger reconheceu o controller!");
@@ -203,19 +205,35 @@ public class UsuarioController {
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
 
+    @Value("${admin.cadastro.senha}")
+    private String senhaCadastroAdmin;
+
     @PostMapping("/cadastro-admin")
-    public ResponseEntity<?> cadastrarAdmin(@RequestBody UsuarioDTO dto) {
+    public ResponseEntity<?> cadastrarAdmin(@RequestBody Map<String, Object> payload) {
+        String senhaAcesso = (String) payload.get("senhaAcesso");
+
+        if (senhaAcesso == null || !senhaAcesso.equals(senhaCadastroAdmin)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Acesso negado: senha inválida.");
+        }
+
         Usuario novoAdmin = new Usuario();
-        novoAdmin.setNome(dto.getNome());
-        novoAdmin.setEmail(dto.getEmail());
-        novoAdmin.setSenha(passwordEncoder.encode(dto.getSenha()));
-        novoAdmin.setRole("ADMIN"); // ← perfil administrativo
+        novoAdmin.setNome((String) payload.get("nome"));
+        novoAdmin.setEmail((String) payload.get("email"));
+        novoAdmin.setSenha(passwordEncoder.encode((String) payload.get("senha")));
+        novoAdmin.setRole("ROLE_ADMIN");
         novoAdmin.setReputacao(100);
         novoAdmin.setConquistas(new ArrayList<>());
+        novoAdmin.setTelefone((String) payload.get("telefone"));
+
+        String dataStr = (String) payload.get("dataNascimento");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        novoAdmin.setDataNascimento(LocalDate.parse(dataStr, formatter));
 
         usuarioRepository.save(novoAdmin);
         return ResponseEntity.ok("Administrador cadastrado com sucesso");
     }
+
+
 
     
     @PostMapping("/cadastro")

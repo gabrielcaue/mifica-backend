@@ -272,10 +272,8 @@ public class UsuarioService {
         usuario.setNome(dto.getNome());
         usuario.setEmail(dto.getEmail());
         usuario.setSenha(passwordEncoder.encode(dto.getSenha()));
-        usuario.setDataNascimento(dto.getDataNascimento());
+        usuario.setDataNascimento(dto.getDataNascimento()); // ← direto como LocalDate
         usuario.setTelefone(dto.getTelefone());
-
-        // 🔐 Define o papel conforme o DTO (com fallback para ROLE_USER)
         usuario.setRole(formatarPapel(dto.getRole()));
 
         usuarioRepository.save(usuario);
