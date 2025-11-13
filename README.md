@@ -1,35 +1,46 @@
-# Mifica — Backend em Spring Boot
+🧠 Mifica — Backend em Spring Boot
+Este é o backend oficial do Mifica, uma plataforma modular que integra reputação, gamificação e transações via blockchain. Desenvolvido com foco em escalabilidade, segurança e extensibilidade.
 
-Este é o backend do projeto **Mifica**, uma plataforma modular voltada para reputação, gamificação e transações via blockchain.
+🚀 Funcionalidades principais
+✅ Registro e listagem de transações blockchain
 
-## 🚀 Funcionalidades principais
+✅ Sistema de reputação por usuário
 
-- Registro e listagem de transações blockchain
-- Sistema de reputação por usuário
-- Conquistas desbloqueáveis
-- API REST estruturada e documentada com Swagger
-- Arquitetura modular com foco em escalabilidade
+✅ Conquistas desbloqueáveis com lógica de progressão
 
-## 📚 Endpoints disponíveis
+✅ Cadastro de administradores com senha especial
 
-- `GET /api/blockchain/transacoes` — Lista todas as transações registradas
-- `POST /api/blockchain/transacoes` — Registra uma nova transação
-- `GET /api/usuarios` — Lista os usuários e suas reputações
-- `GET /api/conquistas` — Lista as conquistas disponíveis
+✅ Autenticação via JWT e controle de acesso por roles
 
-> A documentação completa está disponível via Swagger em:  
-> `http://localhost:8080/swagger-ui/index.html`
+✅ API REST estruturada e documentada com Swagger
 
-## 🛠️ Em desenvolvimento
+✅ Integração com frontend React e painel administrativo em Streamlit
 
-Este backend está em fase final de implementação. As próximas melhorias incluem:
+📚 Endpoints disponíveis
+Método	Rota	Descrição
+GET	/api/blockchain/transacoes	Lista todas as transações registradas
+POST	/api/blockchain/transacoes	Registra uma nova transação
+GET	/api/usuarios	Lista os usuários e suas reputações
+POST	/api/usuarios/cadastro-admin	Cadastra um administrador com senha de acesso
+POST	/api/auth/login	Realiza login e retorna token JWT
+GET	/api/conquistas	Lista as conquistas disponíveis
+📄 A documentação completa está disponível via Swagger: http://localhost:8080/swagger-ui/index.html
 
-✅ Criar perfil de usuário com login via JWT  
-✅ Proteger rotas específicas com roles (`hasRole("ADMIN")`)  
-✅ Adicionar exemplos e tags na documentação Swagger
+🔐 Segurança e autenticação
+Autenticação via JWT
 
-## 🧪 Como rodar localmente
+Proteção de rotas com hasRole("ADMIN")
 
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/gabrielcaue/mifica-backend.git
+Cadastro de administradores exige senha especial definida em application.properties
+
+🧪 Como rodar localmente
+```bash
+# Clone o repositório
+git clone https://github.com/gabrielcaue/mifica-backend.git
+
+# Acesse o diretório
+cd mifica-backend
+
+# Compile e rode o projeto
+./mvnw spring-boot:run
+```
