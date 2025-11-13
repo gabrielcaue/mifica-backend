@@ -17,13 +17,9 @@ Este é o backend oficial do Mifica, uma plataforma modular que integra reputaç
 ✅ Integração com frontend React e painel administrativo em Streamlit
 
 📚 Endpoints disponíveis
-Método	Rota	Descrição
-GET	/api/blockchain/transacoes	Lista todas as transações registradas
-POST	/api/blockchain/transacoes	Registra uma nova transação
-GET	/api/usuarios	Lista os usuários e suas reputações
-POST	/api/usuarios/cadastro-admin	Cadastra um administrador com senha de acesso
-POST	/api/auth/login	Realiza login e retorna token JWT
-GET	/api/conquistas	Lista as conquistas disponíveis
+
+<img width="738" height="297" alt="Image" src="https://github.com/user-attachments/assets/0c08ce3c-a9a6-40e5-b691-3bdfeb94875b" />
+
 📄 A documentação completa está disponível via Swagger: http://localhost:8080/swagger-ui/index.html
 
 🔐 Segurança e autenticação
