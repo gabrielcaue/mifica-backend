@@ -31,8 +31,9 @@ spring.datasource.password=sua_senha
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
-⚠️ Certifique-se de ter o MySQL rodando localmente e um banco chamado mifica criado.
 ```
+⚠️ Certifique-se de ter o MySQL rodando localmente e um banco chamado mifica criado.
+
 ## 📚 Endpoints disponíveis
 
 📄 A documentação completa está disponível via Swagger: 👉 http://localhost:8080/swagger-ui/index.html
