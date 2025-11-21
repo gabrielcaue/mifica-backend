@@ -7,6 +7,7 @@ import java.util.List;
 import jakarta.persistence.*;
 
 @Entity
+@Table(name = "usuarios")
 public class Usuario {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,7 +25,8 @@ public class Usuario {
 
     private String nivel;
 
-    private String role;
+    @Enumerated(EnumType.STRING)
+    private Role role; // ✅ agora usa o enum externo
 
     private LocalDate dataNascimento;
 
@@ -101,11 +103,11 @@ public class Usuario {
         this.nivel = novoNivel;
     }
 
-    public String getRole() {
+    public Role getRole() {
         return role;
     }
 
-    public void setRole(String role) {
+    public void setRole(Role role) {
         this.role = role;
     }
 

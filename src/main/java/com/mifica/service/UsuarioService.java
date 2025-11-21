@@ -9,10 +9,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.mifica.dto.UsuarioCadastroDTO;
 import com.mifica.dto.UsuarioDTO;
 import com.mifica.entity.SolicitacaoCredito;
 import com.mifica.entity.Usuario;
+import com.mifica.entity.Role; // ✅ import do enum
 import com.mifica.repository.UsuarioRepository;
 
 @Service
@@ -40,12 +40,24 @@ public class UsuarioService {
         usuario.setSenha(senhaCriptografada);
         usuario.setReputacao(dto.getReputacao() != null ? dto.getReputacao() : 1);
         usuario.setNivel(dto.getNivel());
+        usuario.setRole(formatarPapel(dto.getRole())); // ✅ conversão para enum
 
         Usuario salvo = usuarioRepository.save(usuario);
         return converterParaDTO(salvo);
     }
 
-    public Optional<UsuarioDTO> buscarPorId(Long id) {
+    // ✅ Agora retorna o enum Role corretamente
+    private Role formatarPapel(String role) {
+        if (role == null || role.isBlank()) {
+            return Role.ROLE_USER; // padrão
+        }
+        if (role.toUpperCase().startsWith("ROLE_")) {
+            return Role.valueOf(role.toUpperCase());
+        }
+        return Role.valueOf("ROLE_" + role.toUpperCase());
+    }
+
+	public Optional<UsuarioDTO> buscarPorId(Long id) {
         return usuarioRepository.findById(id).map(this::converterParaDTO);
     }
 
@@ -196,7 +208,7 @@ public class UsuarioService {
             usuario.getNivel(),
             usuario.getDataNascimento(),
             usuario.getTelefone(),
-            usuario.getRole()
+            usuario.getRole() != null ? usuario.getRole().name() : null
         );
     }
 
@@ -221,6 +233,10 @@ public class UsuarioService {
             usuario.setReputacao(dto.getReputacao());
         }
 
+        if (dto.getRole() != null) {
+            usuario.setRole(formatarPapel(dto.getRole()));
+        }
+
         usuarioRepository.save(usuario);
         return Optional.of(converterParaDTO(usuario));
     }
@@ -238,6 +254,10 @@ public class UsuarioService {
 
         usuario.setReputacao(dto.getReputacao());
         usuario.setNivel(dto.getNivel());
+
+        if (dto.getRole() != null) {
+            usuario.setRole(formatarPapel(dto.getRole()));
+        }
 
         Usuario atualizado = usuarioRepository.save(usuario);
         return converterParaDTO(atualizado);
@@ -258,40 +278,18 @@ public class UsuarioService {
 
     public double mediaReputacao() {
         List<Usuario> usuarios = usuarioRepository.findAll();
-        if (usuarios.isEmpty()) return 0.0;
-
+        if (usuarios.isEmpty()) return 0.0; // ✅ corrigido com ponto decimal e ;
         double soma = usuarios.stream()
                               .mapToDouble(Usuario::getReputacao)
                               .sum();
-
         return soma / usuarios.size();
     }
-
-    public void cadastrarNovoUsuario(UsuarioCadastroDTO dto) {
-        Usuario usuario = new Usuario();
-        usuario.setNome(dto.getNome());
-        usuario.setEmail(dto.getEmail());
-        usuario.setSenha(passwordEncoder.encode(dto.getSenha()));
-        usuario.setDataNascimento(dto.getDataNascimento()); // ← direto como LocalDate
-        usuario.setTelefone(dto.getTelefone());
-        usuario.setRole(formatarPapel(dto.getRole()));
-
-        usuarioRepository.save(usuario);
-    }
-
-    public void alterarPapel(Long id, String novoPapel) {
+    
+    public void alterarPapel(Long id, Role novoPapel) {
         Usuario usuario = usuarioRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
-        usuario.setRole(formatarPapel(novoPapel));
+        usuario.setRole(novoPapel); // já é enum
         usuarioRepository.save(usuario);
     }
-    
-    private String formatarPapel(String papel) {
-        if (papel == null || papel.isBlank()) {
-            return "ROLE_USER";
-        }
-        return papel.startsWith("ROLE_") ? papel : "ROLE_" + papel.toUpperCase();
-    }
 
-    
 }

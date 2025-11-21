@@ -1,7 +1,6 @@
 package com.mifica.dto;
 
 import com.mifica.entity.Usuario;
-
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -40,7 +39,7 @@ public class UsuarioDTO {
     private String telefone;
 
     @NotBlank(message = "Papel do usuário é obrigatório.")
-    private String role;
+    private String role; // ✅ agora é String
 
     // 🔹 Construtor padrão
     public UsuarioDTO() {}
@@ -68,7 +67,7 @@ public class UsuarioDTO {
         this.nivel = usuario.getNivel();
         this.dataNascimento = usuario.getDataNascimento();
         this.telefone = usuario.getTelefone();
-        this.role = usuario.getRole();
+        this.role = usuario.getRole() != null ? usuario.getRole().name() : null; // ✅ converte enum → String
         // senha omitida por segurança
     }
 

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import com.mifica.dto.EstatisticasDTO;
 import com.mifica.dto.LoginDTO;
 import com.mifica.dto.UsuarioDTO;
+import com.mifica.entity.Role;
 import com.mifica.entity.Usuario;
 import com.mifica.repository.UsuarioRepository;
 import com.mifica.service.UsuarioService;
@@ -100,9 +101,8 @@ public class UsuarioController {
             	    usuario.getNivel(),
             	    usuario.getDataNascimento(),
             	    usuario.getTelefone(),
-            	    usuario.getRole()
+            	    usuario.getRole() != null ? usuario.getRole().name() : null // ✅ converte enum → String
             	);
-
 
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
@@ -208,19 +208,27 @@ public class UsuarioController {
     @Value("${admin.cadastro.senha}")
     private String senhaCadastroAdmin;
 
+    @PostMapping("/cadastro")
+    public ResponseEntity<?> cadastrarUsuario(@RequestBody UsuarioDTO dto) {
+        Usuario novoUsuario = new Usuario();
+        novoUsuario.setNome(dto.getNome());
+        novoUsuario.setEmail(dto.getEmail());
+        novoUsuario.setSenha(passwordEncoder.encode(dto.getSenha()));
+        novoUsuario.setRole(Role.ROLE_USER); // ✅ perfil padrão
+        novoUsuario.setReputacao(0);
+        novoUsuario.setConquistas(new ArrayList<>());
+
+        usuarioRepository.save(novoUsuario);
+        return ResponseEntity.ok("Usuário cadastrado com sucesso");
+    }
+
     @PostMapping("/cadastro-admin")
     public ResponseEntity<?> cadastrarAdmin(@RequestBody Map<String, Object> payload) {
-        String senhaAcesso = (String) payload.get("senhaAcesso");
-
-        if (senhaAcesso == null || !senhaAcesso.equals(senhaCadastroAdmin)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Acesso negado: senha inválida.");
-        }
-
         Usuario novoAdmin = new Usuario();
         novoAdmin.setNome((String) payload.get("nome"));
         novoAdmin.setEmail((String) payload.get("email"));
         novoAdmin.setSenha(passwordEncoder.encode((String) payload.get("senha")));
-        novoAdmin.setRole("ROLE_ADMIN");
+        novoAdmin.setRole(Role.ROLE_ADMIN); // ✅ já nasce como ADMIN
         novoAdmin.setReputacao(100);
         novoAdmin.setConquistas(new ArrayList<>());
         novoAdmin.setTelefone((String) payload.get("telefone"));
@@ -233,38 +241,20 @@ public class UsuarioController {
         return ResponseEntity.ok("Administrador cadastrado com sucesso");
     }
 
-
-
-    
-    @PostMapping("/cadastro")
-    public ResponseEntity<?> cadastrarUsuario(@RequestBody UsuarioDTO dto) {
-        Usuario novoUsuario = new Usuario();
-        novoUsuario.setNome(dto.getNome());
-        novoUsuario.setEmail(dto.getEmail());
-        novoUsuario.setSenha(passwordEncoder.encode(dto.getSenha()));
-        novoUsuario.setRole("USER"); // ← perfil padrão
-        novoUsuario.setReputacao(0);
-        novoUsuario.setConquistas(new ArrayList<>());
-
-        usuarioRepository.save(novoUsuario);
-        return ResponseEntity.ok("Usuário cadastrado com sucesso");
-    }
-
-
-
     @PutMapping("/admin/promover/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> promover(@PathVariable Long id) {
-        usuarioService.alterarPapel(id, "ROLE_ADMIN");
+        usuarioService.alterarPapel(id, Role.ROLE_ADMIN); // ✅ enum
         return ResponseEntity.ok("Usuário promovido para ADMIN.");
     }
-    
+
     @PutMapping("/admin/rebaixar/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> rebaixar(@PathVariable Long id) {
-        usuarioService.alterarPapel(id, "ROLE_USER");
+        usuarioService.alterarPapel(id, Role.ROLE_USER); // ✅ enum
         return ResponseEntity.ok("Usuário rebaixado para USER.");
     }
+
 
     @RestController
     @RequestMapping("/api/config")

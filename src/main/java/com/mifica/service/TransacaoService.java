@@ -20,9 +20,11 @@ public class TransacaoService {
 
     public List<Transacao> listarPorEmail(String email) {
         Usuario usuario = usuarioRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("ID do usuário não encontrado"));
-        
-        return transacaoRepository.findByRemetenteOrDestinatario(email, email);
+            .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+
+        return transacaoRepository.findByRemetenteOrDestinatario(
+            usuario.getEmail(), usuario.getEmail()
+        );
     }
 
     public void criarTransacao(String email, Transacao transacao) {
