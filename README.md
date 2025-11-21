@@ -56,10 +56,6 @@ cd mifica-backend
 # Compile e rode o projeto
 ./mvnw spring-boot:run
 ```
-## 📦 Próximos passos (em andamento)
-# 🐳 Docker: containerização do backend e banco de dados
-# ☁️ Google Cloud Platform (GCP): deploy em nuvem
-# 🌐 GitHub Pages / GitHub Actions: CI/CD e documentação automatizada
 
 ## 🎯 Resumindo
 Adicionei seção Banco de Dados com instruções de configuração.
@@ -119,6 +115,6 @@ docker-compose down
 O backend ficará disponível em http://localhost:8080 e o banco MySQL em localhost:3306.
 
 ## 📦 Próximos passos
-# ☁️ Deploy em Google Cloud Platform (GCP)
-# 🌐 CI/CD com GitHub Actions
-# 📊 Documentação automatizada via GitHub Pages
+### ☁️ Deploy em Google Cloud Platform (GCP)
+### 🌐 CI/CD com GitHub Actions
+### 📊 Documentação automatizada via GitHub Pages
