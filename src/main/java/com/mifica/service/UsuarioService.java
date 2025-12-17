@@ -3,16 +3,18 @@ package com.mifica.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.mifica.dto.UsuarioDTO;
+import com.mifica.entity.Role;
 import com.mifica.entity.SolicitacaoCredito;
 import com.mifica.entity.Usuario;
-import com.mifica.entity.Role; // ✅ import do enum
 import com.mifica.repository.UsuarioRepository;
 
 @Service
@@ -28,6 +30,7 @@ public class UsuarioService {
         return usuarioRepository.findByEmail(email).isPresent();
     }
 
+    // Cadastro com senha criptografada
     public UsuarioDTO criar(UsuarioDTO dto) {
         String senhaCriptografada = criptografarSenha(dto.getSenha());
         return criarUsuario(dto, senhaCriptografada);
@@ -37,19 +40,28 @@ public class UsuarioService {
         Usuario usuario = new Usuario();
         usuario.setNome(dto.getNome());
         usuario.setEmail(dto.getEmail());
-        usuario.setSenha(senhaCriptografada);
+        usuario.setSenha(senhaCriptografada); // ✅ corrigido
         usuario.setReputacao(dto.getReputacao() != null ? dto.getReputacao() : 1);
         usuario.setNivel(dto.getNivel());
-        usuario.setRole(formatarPapel(dto.getRole())); // ✅ conversão para enum
+        usuario.setRole(formatarPapel(dto.getRole()));
 
         Usuario salvo = usuarioRepository.save(usuario);
         return converterParaDTO(salvo);
     }
 
-    // ✅ Agora retorna o enum Role corretamente
+    // ✅ Novo método para login
+    public boolean validarLogin(String email, String senhaDigitada) {
+        Usuario usuario = buscarPorEmail(email);
+        if (usuario == null) throw new RuntimeException("Usuário não encontrado");
+        if (!passwordEncoder.matches(senhaDigitada, usuario.getSenha())) {
+            throw new RuntimeException("Senha inválida");
+        }
+        return true;
+    }
+
     private Role formatarPapel(String role) {
         if (role == null || role.isBlank()) {
-            return Role.ROLE_USER; // padrão
+            return Role.ROLE_USER;
         }
         if (role.toUpperCase().startsWith("ROLE_")) {
             return Role.valueOf(role.toUpperCase());
@@ -57,7 +69,7 @@ public class UsuarioService {
         return Role.valueOf("ROLE_" + role.toUpperCase());
     }
 
-	public Optional<UsuarioDTO> buscarPorId(Long id) {
+    public Optional<UsuarioDTO> buscarPorId(Long id) {
         return usuarioRepository.findById(id).map(this::converterParaDTO);
     }
 
@@ -198,12 +210,13 @@ public class UsuarioService {
         return passwordEncoder.encode(senha);
     }
 
-    private UsuarioDTO converterParaDTO(Usuario usuario) {
+    // ✅ Agora é público para o controller usar
+    public UsuarioDTO converterParaDTO(Usuario usuario) {
         return new UsuarioDTO(
             usuario.getId(),
             usuario.getNome(),
             usuario.getEmail(),
-            null,
+            null, // nunca expor senha no DTO
             usuario.getReputacao(),
             usuario.getNivel(),
             usuario.getDataNascimento(),
@@ -241,55 +254,68 @@ public class UsuarioService {
         return Optional.of(converterParaDTO(usuario));
     }
 
-    public UsuarioDTO atualizarUsuario(Long id, UsuarioDTO dto) {
-        Usuario usuario = usuarioRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+public UsuarioDTO atualizarUsuario(Long id, UsuarioDTO dto) {
+    Usuario usuario = usuarioRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
 
-        usuario.setNome(dto.getNome());
-        usuario.setEmail(dto.getEmail());
+    usuario.setNome(dto.getNome());
+    usuario.setEmail(dto.getEmail());
 
-        if (dto.getSenha() != null && !dto.getSenha().isBlank()) {
-            usuario.setSenha(criptografarSenha(dto.getSenha()));
-        }
+    if (dto.getSenha() != null && !dto.getSenha().isBlank()) {
+        usuario.setSenha(criptografarSenha(dto.getSenha()));
+    }
 
-        usuario.setReputacao(dto.getReputacao());
-        usuario.setNivel(dto.getNivel());
+    usuario.setReputacao(dto.getReputacao());
+    usuario.setNivel(dto.getNivel());
 
-        if (dto.getRole() != null) {
-            usuario.setRole(formatarPapel(dto.getRole()));
-        }
+    if (dto.getRole() != null) { // ✅ corrigido
+        usuario.setRole(formatarPapel(dto.getRole()));
+    }
 
-        Usuario atualizado = usuarioRepository.save(usuario);
-        return converterParaDTO(atualizado);
+    Usuario atualizado = usuarioRepository.save(usuario);
+    return converterParaDTO(atualizado);
     }
 
     public boolean existePorId(Long id) {
-        return usuarioRepository.existsById(id);
+    return usuarioRepository.existsById(id);
     }
 
     public Usuario buscarUsuarioPorId(Long id) {
-        return usuarioRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+    return usuarioRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
     }
 
     public int contarUsuarios() {
-        return Math.toIntExact(usuarioRepository.count());
+    return Math.toIntExact(usuarioRepository.count());
     }
 
     public double mediaReputacao() {
-        List<Usuario> usuarios = usuarioRepository.findAll();
-        if (usuarios.isEmpty()) return 0.0; // ✅ corrigido com ponto decimal e ;
-        double soma = usuarios.stream()
-                              .mapToDouble(Usuario::getReputacao)
-                              .sum();
-        return soma / usuarios.size();
-    }
-    
-    public void alterarPapel(Long id, Role novoPapel) {
-        Usuario usuario = usuarioRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
-        usuario.setRole(novoPapel); // já é enum
-        usuarioRepository.save(usuario);
+    List<Usuario> usuarios = usuarioRepository.findAll();
+    if (usuarios.isEmpty()) return 0.0;
+    double soma = usuarios.stream()
+                          .mapToDouble(Usuario::getReputacao)
+                          .sum();
+    return soma / usuarios.size();
     }
 
+    public void alterarPapel(Long id, Role novoPapel) {
+    Usuario usuario = usuarioRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+    usuario.setRole(novoPapel);
+    usuarioRepository.save(usuario);
+    }
+
+        // 🔧 Novo método para atualizar senha
+public boolean atualizarSenha(Long id, String senhaAtual, String senhaNova) {
+    Usuario usuario = usuarioRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+
+    if (!passwordEncoder.matches(senhaAtual, usuario.getSenha())) {
+        throw new RuntimeException("Senha atual incorreta.");
+    }
+
+    usuario.setSenha(passwordEncoder.encode(senhaNova));
+    usuarioRepository.save(usuario);
+    return true;
+    }
 }

@@ -25,6 +25,21 @@ public class JwtFiltro extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getRequestURI();
+            System.out.println("JwtFiltro: shouldNotFilter path = " + path);
+            
+        // Endpoints públicos não passam pelo filtro JWT
+    return path.equals("/") ||
+           path.equals("/api/usuarios/login") ||
+           path.equals("/api/usuarios/criar") ||
+           path.startsWith("/swagger-ui") ||
+           path.startsWith("/v3/api-docs") ||
+           path.startsWith("/api/auth") ||
+           path.startsWith("/api/blockchain");
+}
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain)
@@ -41,7 +56,6 @@ public class JwtFiltro extends OncePerRequestFilter {
                 String role = claims.get("role", String.class);
 
                 if (email != null && role != null) {
-                    // 🔑 Prefixa com "ROLE_" para compatibilidade com Spring Security
                     SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
                     UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                             email, null, List.of(authority)
@@ -56,3 +70,4 @@ public class JwtFiltro extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
+

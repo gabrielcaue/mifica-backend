@@ -7,12 +7,25 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.mifica.dto.EstatisticasDTO;
 import com.mifica.dto.LoginDTO;
@@ -23,10 +36,8 @@ import com.mifica.repository.UsuarioRepository;
 import com.mifica.service.UsuarioService;
 import com.mifica.util.JwtUtil;
 
-import jakarta.validation.Valid;
-
 @RestController
-@RequestMapping("/api/usuarios") // 🔧 Prefixo padronizado
+@RequestMapping("/api/usuarios")
 public class UsuarioController {
 
     private static final String USUARIO_NAO_ENCONTRADO = "Usuário não encontrado.";
@@ -37,168 +48,7 @@ public class UsuarioController {
 
     @Autowired
     private JwtUtil jwtUtil;
-    
-    @GetMapping("/teste-swagger")
-    public ResponseEntity<String> testarSwagger() {
-        return ResponseEntity.ok("Swagger reconheceu o controller!");
-    }
 
-    @PostMapping
-    public ResponseEntity<UsuarioDTO> criar(@Valid @RequestBody UsuarioDTO dto) {
-        UsuarioDTO criado = usuarioService.criar(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(criado);
-    }
-
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginDTO dto) {
-        Usuario usuario = usuarioService.buscarPorEmail(dto.getEmail());
-
-        if (usuario == null || !usuarioService.senhaCorreta(dto.getSenha(), usuario.getSenha())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Credenciais inválidas.");
-        }
-
-        String token = jwtUtil.gerarToken(usuario.getEmail());
-
-        Map<String, Object> resposta = new HashMap<>();
-        resposta.put("token", token);
-        resposta.put("id", usuario.getId()); // ← ESSENCIAL
-        resposta.put("nome", usuario.getNome());
-        resposta.put("reputacao", usuario.getReputacao());
-        resposta.put("conquistas", usuario.getConquistas());
-
-        return ResponseEntity.ok(resposta);
-    }
-
-
-    @GetMapping("/admin/usuarios")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<UsuarioDTO>> listarTodos() {
-        return ResponseEntity.ok(usuarioService.listarTodos());
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<?> buscarPorId(@PathVariable Long id) {
-        Optional<UsuarioDTO> usuario = usuarioService.buscarPorId(id);
-        return usuario.<ResponseEntity<?>>map(ResponseEntity::ok)
-                      .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(USUARIO_NAO_ENCONTRADO));
-    }
-
-    @GetMapping("/perfil")
-    public ResponseEntity<?> perfil(@RequestHeader("Authorization") String token) {
-        try {
-            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
-            Usuario usuario = usuarioService.buscarPorEmail(email);
-            if (usuario == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(USUARIO_NAO_ENCONTRADO);
-            }
-
-            UsuarioDTO dto = new UsuarioDTO(
-            	    usuario.getId(),
-            	    usuario.getNome(),
-            	    usuario.getEmail(),
-            	    null, // senha omitida
-            	    usuario.getReputacao(),
-            	    usuario.getNivel(),
-            	    usuario.getDataNascimento(),
-            	    usuario.getTelefone(),
-            	    usuario.getRole() != null ? usuario.getRole().name() : null // ✅ converte enum → String
-            	);
-
-            return ResponseEntity.ok(dto);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(TOKEN_INVALIDO);
-        }
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<UsuarioDTO> atualizarUsuario(@PathVariable Long id, @RequestBody UsuarioDTO dto) {
-        UsuarioDTO atualizado = usuarioService.atualizarUsuario(id, dto);
-        return ResponseEntity.ok(atualizado);
-    }
-
-    @PatchMapping("/perfil/reputacao")
-    public ResponseEntity<String> atualizarReputacao(@RequestHeader("Authorization") String token,
-                                                     @RequestBody int novaReputacao) {
-        try {
-            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
-            usuarioService.atualizarReputacao(email, novaReputacao);
-            return ResponseEntity.ok("Reputação atualizada com sucesso.");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(TOKEN_INVALIDO);
-        }
-    }
-
-    @GetMapping("/perfil/missao-diaria")
-    public ResponseEntity<String> verificarMissaoDiaria(@RequestHeader("Authorization") String token) {
-        try {
-            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
-            Usuario usuario = usuarioService.buscarPorEmail(email);
-            if (usuario == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(USUARIO_NAO_ENCONTRADO);
-            }
-
-            boolean cumpriu = usuarioService.verificarMissaoDiaria(usuario);
-            return ResponseEntity.ok(cumpriu
-                ? "✅ Missão diária cumprida: você criou uma solicitação hoje!"
-                : "❌ Missão diária pendente: crie uma solicitação para completar.");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(TOKEN_INVALIDO);
-        }
-    }
-
-    @PostMapping("/perfil/recompensas")
-    public ResponseEntity<String> aplicarRecompensas(@RequestHeader("Authorization") String token) {
-        try {
-            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
-            usuarioService.aplicarRecompensas(email);
-            return ResponseEntity.ok("Recompensas aplicadas com sucesso.");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(TOKEN_INVALIDO);
-        }
-    }
-
-    @GetMapping("/perfil/conquistas")
-    public ResponseEntity<List<String>> listarConquistas(@RequestHeader("Authorization") String token) {
-        try {
-            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
-            List<String> conquistas = usuarioService.listarConquistas(email);
-            return ResponseEntity.ok(conquistas);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-    }
-
-    @DeleteMapping("/perfil")
-    public ResponseEntity<String> deletarConta(@RequestHeader("Authorization") String token) {
-        try {
-            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
-            usuarioService.deletarPorEmail(email);
-            return ResponseEntity.ok("Conta excluída com sucesso.");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(TOKEN_INVALIDO);
-        }
-    }
-
-    @RequestMapping(value = "/{id}", method = RequestMethod.HEAD)
-    public ResponseEntity<Void> verificarExistencia(@PathVariable Long id) {
-        boolean existe = usuarioService.existePorId(id);
-        return existe ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
-    }
-
-    @RequestMapping(value = "", method = RequestMethod.OPTIONS)
-    public ResponseEntity<Void> options() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Allow", "GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS");
-        return new ResponseEntity<>(headers, HttpStatus.OK);
-    }
-
-    @GetMapping("/estatisticas")
-    public EstatisticasDTO getEstatisticas() {
-        int totalUsuarios = usuarioService.contarUsuarios();
-        double mediaReputacao = usuarioService.mediaReputacao();
-        return new EstatisticasDTO(totalUsuarios, mediaReputacao);
-    }
-    
     @Autowired
     private UsuarioRepository usuarioRepository;
 
@@ -208,27 +58,30 @@ public class UsuarioController {
     @Value("${admin.cadastro.senha}")
     private String senhaCadastroAdmin;
 
-    @PostMapping("/cadastro")
-    public ResponseEntity<?> cadastrarUsuario(@RequestBody UsuarioDTO dto) {
-        Usuario novoUsuario = new Usuario();
-        novoUsuario.setNome(dto.getNome());
-        novoUsuario.setEmail(dto.getEmail());
-        novoUsuario.setSenha(passwordEncoder.encode(dto.getSenha()));
-        novoUsuario.setRole(Role.ROLE_USER); // ✅ perfil padrão
-        novoUsuario.setReputacao(0);
-        novoUsuario.setConquistas(new ArrayList<>());
-
-        usuarioRepository.save(novoUsuario);
-        return ResponseEntity.ok("Usuário cadastrado com sucesso");
+    // 🔧 Teste Swagger
+    @GetMapping("/teste-swagger")
+    public ResponseEntity<String> testarSwagger() {
+        return ResponseEntity.ok("Swagger reconheceu o controller!");
     }
 
+    // 🔧 Cadastro de usuário comum
+    @PostMapping("/cadastro")
+    public ResponseEntity<?> cadastrarUsuario(@RequestBody UsuarioDTO dto) {
+        if (usuarioService.emailJaExiste(dto.getEmail())) {
+            return ResponseEntity.badRequest().body("Email já cadastrado.");
+        }
+        UsuarioDTO novo = usuarioService.criar(dto);
+        return ResponseEntity.ok(novo);
+    }
+
+    // 🔧 Cadastro de administrador
     @PostMapping("/cadastro-admin")
     public ResponseEntity<?> cadastrarAdmin(@RequestBody Map<String, Object> payload) {
         Usuario novoAdmin = new Usuario();
         novoAdmin.setNome((String) payload.get("nome"));
         novoAdmin.setEmail((String) payload.get("email"));
         novoAdmin.setSenha(passwordEncoder.encode((String) payload.get("senha")));
-        novoAdmin.setRole(Role.ROLE_ADMIN); // ✅ já nasce como ADMIN
+        novoAdmin.setRole(Role.ROLE_ADMIN);
         novoAdmin.setReputacao(100);
         novoAdmin.setConquistas(new ArrayList<>());
         novoAdmin.setTelefone((String) payload.get("telefone"));
@@ -241,31 +94,179 @@ public class UsuarioController {
         return ResponseEntity.ok("Administrador cadastrado com sucesso");
     }
 
-    @PutMapping("/admin/promover/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<String> promover(@PathVariable Long id) {
-        usuarioService.alterarPapel(id, Role.ROLE_ADMIN); // ✅ enum
-        return ResponseEntity.ok("Usuário promovido para ADMIN.");
+ // 🔧 Login com JWT via POST (frontend/app)
+    @PostMapping("/login")
+    public ResponseEntity<?> loginPost(@RequestBody LoginDTO dto) {
+        boolean valido = usuarioService.validarLogin(dto.getEmail(), dto.getSenha());
+        if (!valido) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Credenciais inválidas.");
+        }
+
+        Usuario usuario = usuarioService.buscarPorEmail(dto.getEmail());
+        String token = jwtUtil.gerarToken(usuario.getEmail());
+
+        Map<String, Object> resposta = new HashMap<>();
+        resposta.put("token", token);
+        resposta.put("id", usuario.getId());
+        resposta.put("nome", usuario.getNome());
+        resposta.put("reputacao", usuario.getReputacao());
+        resposta.put("conquistas", usuario.getConquistas());
+
+        return ResponseEntity.ok(resposta);
     }
 
-    @PutMapping("/admin/rebaixar/{id}")
+    // 🔧 Listar todos (ADMIN)
+    @GetMapping("/admin/usuarios")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<String> rebaixar(@PathVariable Long id) {
-        usuarioService.alterarPapel(id, Role.ROLE_USER); // ✅ enum
-        return ResponseEntity.ok("Usuário rebaixado para USER.");
+    public ResponseEntity<List<UsuarioDTO>> listarTodos() {
+        return ResponseEntity.ok(usuarioService.listarTodos());
     }
 
+    // 🔧 Buscar por ID
+    @GetMapping("/{id}")
+    public ResponseEntity<?> buscarPorId(@PathVariable Long id) {
+        Optional<UsuarioDTO> usuario = usuarioService.buscarPorId(id);
+        return usuario.<ResponseEntity<?>>map(ResponseEntity::ok)
+                      .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(USUARIO_NAO_ENCONTRADO));
+    }
 
-    @RestController
-    @RequestMapping("/api/config")
-    public class ConfigController {
-
-        @Value("${app.security.dev-mode}")
-        private boolean devMode;
-
-        @GetMapping("/dev-mode")
-        public boolean isDevMode() {
-            return devMode;
+    // 🔧 Perfil do usuário autenticado
+    @GetMapping("/perfil")
+    public ResponseEntity<?> perfil(@RequestHeader("Authorization") String token) {
+        try {
+            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
+            Usuario usuario = usuarioService.buscarPorEmail(email);
+            if (usuario == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(USUARIO_NAO_ENCONTRADO);
+            }
+            UsuarioDTO dto = usuarioService.converterParaDTO(usuario);
+            return ResponseEntity.ok(dto);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(TOKEN_INVALIDO);
         }
     }
+
+    // 🔧 Atualizar usuário
+    @PutMapping("/{id}")
+    public ResponseEntity<UsuarioDTO> atualizarUsuario(@PathVariable Long id, @RequestBody UsuarioDTO dto) {
+        UsuarioDTO atualizado = usuarioService.atualizarUsuario(id, dto);
+        return ResponseEntity.ok(atualizado);
+    }
+
+    // 🔧 Atualizar reputação
+    @PatchMapping("/perfil/reputacao")
+    public ResponseEntity<String> atualizarReputacao(@RequestHeader("Authorization") String token,
+                                                     @RequestBody int novaReputacao) {
+        try {
+            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
+            usuarioService.atualizarReputacao(email, novaReputacao);
+            return ResponseEntity.ok("Reputação atualizada com sucesso.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(TOKEN_INVALIDO);
+        }
+    }
+
+    // 🔧 Missão diária
+    @GetMapping("/perfil/missao-diaria")
+    public ResponseEntity<String> verificarMissaoDiaria(@RequestHeader("Authorization") String token) {
+        try {
+            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
+            Usuario usuario = usuarioService.buscarPorEmail(email);
+            if (usuario == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(USUARIO_NAO_ENCONTRADO);
+            }
+            boolean cumpriu = usuarioService.verificarMissaoDiaria(usuario);
+            return ResponseEntity.ok(cumpriu
+                ? "✅ Missão diária cumprida!"
+                : "❌ Missão diária pendente.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(TOKEN_INVALIDO);
+        }
+    }
+
+    // 🔧 Recompensas
+    @PostMapping("/perfil/recompensas")
+    public ResponseEntity<String> aplicarRecompensas(@RequestHeader("Authorization") String token) {
+        try {
+            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
+            usuarioService.aplicarRecompensas(email);
+            return ResponseEntity.ok("Recompensas aplicadas com sucesso.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(TOKEN_INVALIDO);
+        }
+    }
+
+    // 🔧 Conquistas
+    @GetMapping("/perfil/conquistas")
+    public ResponseEntity<List<String>> listarConquistas(@RequestHeader("Authorization") String token) {
+        try {
+            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
+            List<String> conquistas = usuarioService.listarConquistas(email);
+            return ResponseEntity.ok(conquistas);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    // 🔧 Deletar conta
+    @DeleteMapping("/perfil")
+    public ResponseEntity<String> deletarConta(@RequestHeader("Authorization") String token) {
+        try {
+            String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
+            usuarioService.deletarPorEmail(email);
+            return ResponseEntity.ok("Conta excluída com sucesso.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(TOKEN_INVALIDO);
+        }
+    }
+
+    // 🔧 HEAD para verificar existência
+    @RequestMapping(value = "/{id}", method = RequestMethod.HEAD)
+    public ResponseEntity<Void> verificarExistencia(@PathVariable Long id) {
+        boolean existe = usuarioService.existePorId(id);
+        return existe ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+    }
+
+    // 🔧 OPTIONS
+    @RequestMapping(value = "", method = RequestMethod.OPTIONS)
+    public ResponseEntity<Void> options() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Allow", "GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS");
+        return new ResponseEntity<>(headers, HttpStatus.OK);
+    }
+
+    // 🔧 Estatísticas
+    @GetMapping("/estatisticas")
+    public EstatisticasDTO getEstatisticas() {
+        int totalUsuarios = usuarioService.contarUsuarios();
+        double mediaReputacao = usuarioService.mediaReputacao();
+        return new EstatisticasDTO(totalUsuarios, mediaReputacao);
+    }
+
+@PutMapping("/{id}/senha")
+public ResponseEntity<?> atualizarSenha(
+        @PathVariable Long id,
+        @RequestBody Map<String, String> payload,
+        @RequestHeader("Authorization") String token) {
+    try {
+        String email = jwtUtil.extrairEmail(token.replace("Bearer ", ""));
+        Usuario usuario = usuarioService.buscarPorEmail(email);
+
+        if (usuario == null || !usuario.getId().equals(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Usuário não autorizado.");
+        }
+
+        String senhaAtual = payload.get("senhaAtual");
+        String senhaNova = payload.get("senhaNova");
+
+        usuarioService.atualizarSenha(id, senhaAtual, senhaNova);
+
+        return ResponseEntity.ok("Senha atualizada com sucesso!");
+    } catch (RuntimeException e) {
+        return ResponseEntity.badRequest().body(e.getMessage());
+    }
+}
+
+
+
 }
